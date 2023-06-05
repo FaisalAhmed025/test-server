@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Res, HttpStatus, UnauthorizedException, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Req, Res, HttpStatus, UnauthorizedException, NotFoundException, BadRequestException, HttpException, Query } from '@nestjs/common';
 import { AlumniService } from './alumni.service';
 import { CreateAlumnusDto } from './dto/create-alumnus.dto';
 import { UpdateAlumnusDto } from './dto/update-alumnus.dto';
@@ -31,6 +31,11 @@ export class AlumniController {
     @Body() body
   ) {
     const { FirstName, LastName, StudentId, Department, EducationStatus, Password, UniversityName,PhoneNumber, Email,Country ,City} = req.body
+    const existingUser = await this.alumniRepository.findOne({ where:{Email} });
+  if (existingUser) {
+    return res.status(HttpStatus.BAD_REQUEST).json({ status: "error", message: 'User already exists' });
+  }
+
     const registration = new Alumni()
     registration.FirstName = FirstName
     registration.LastName = LastName
@@ -309,22 +314,32 @@ export class AlumniController {
     }
     return job
   }
+  
 
- @Get('myjobs')
- async findMatchin(alumni:Alumni): Promise<Job[]> {
+
+
+  @Get('myjobs')
+ async findMatchin(@Query() alumni:Alumni): Promise<Job[]> {
   const matchingJobs = await this.JobRepository
     .createQueryBuilder('job')
     .leftJoin('job.alumni', 'alumni')
-    .where('alumni.uuid != :uuid', { uuid: alumni.uuid })
-    .andWhere('user.city = :city', { city: userProfile.city })
-    .andWhere('user.country = :country', { country: userProfile.country })
-    .andWhere('user.university = :university', { university: userProfile.university })
+    .where('alumni.uuid = :uuid', { uuid: alumni.uuid })
+    // .andWhere('job.alumniUuid = :alumniid', { alumniid:alumni.uuid})
+    .orWhere('alumni.City = :city', { city: alumni.City })
+    .orWhere('alumni.Country = :country', { country: alumni.Country })
+    .orWhere('alumni.UniversityName = :university', { university: alumni.UniversityName })
     .getMany();
-
+    
+  if (matchingJobs.length === 0) {
+    throw new NotFoundException('No matching jobs found');
+  }
   return matchingJobs;
 }
 
-  
+
+
+
+
 
 
   @Get('/job/all')
